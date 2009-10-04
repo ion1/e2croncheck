@@ -1,0 +1,67 @@
+#!/bin/sh
+# e2croncheck – run e2fsck on a snapshot of an LVM volume
+#
+# USAGE: e2croncheck vgname/lvname
+# Call this with >/dev/null from your weekly crontab.
+#
+# The script prints nothing to stderr and returns zero if the check is
+# successful. Otherwise, the fsck log is printed to stderr and a non-zero value
+# is returned. The cron daemon will then mail the output to you.
+#
+# Written by Theodore Ts'o, Copyright 2007-2008
+# Modified by Johan Kiviniemi
+#
+# This file may be redistributed under the terms of the GNU Public License,
+# version 2.
+
+set -e
+
+if [ "$#" -ne 1 ]; then
+  >&2 printf "USAGE: %s vg/lv\n" "$0"
+  false
+fi
+
+snapsize=100M
+fsckopts="-Fttv -C0"
+
+fscklog="$(mktemp -t e2fsck.log.XXXXXXXXXX)"
+traps='rm -f "$fscklog"'
+trap "$traps" 0
+
+vg_lv="$1"; shift
+
+vg="${vg_lv%%/*}"
+lv="${vg_lv#*/}"
+
+if [ "$vg_lv" != "$vg/$lv" ] || [ -z "$vg" ] || [ -z "$lv" ]; then
+  >&2 printf "%s: Invalid vg/lv\n" "$vg_lv"
+  false
+fi
+
+lv_snap="$lv-fsck-snapshot"
+
+dev="/dev/$vg/$lv"
+dev_snap="/dev/$vg/$lv_snap"
+
+start="$(date +%Y%m%d%H%M%S)"
+
+lvcreate -s -L "$snapsize" -n "$lv_snap" "$vg/$lv"
+traps="$traps"'; lvremove -f "$vg/$lv_snap"'
+trap "$traps" 0
+
+if nice logsave -as "$fscklog" e2fsck -p  $fsckopts "$dev_snap" && \
+   nice logsave -as "$fscklog" e2fsck -fy $fsckopts "$dev_snap"; then
+  printf "%s: Background fsck succeeded\n" "$vg/$lv"
+
+  tune2fs -C 0 -T "$start" "$dev"
+else
+  >&2 printf "%s: Background fsck failed! Reboot to fsck soon!\n" "$vg/$lv"
+
+  tune2fs -C 16000 -T "19000101" "$dev"
+
+  >&2 cat "$fscklog"
+
+  false
+fi
+
+# vim:set et sw=2 sts=2:

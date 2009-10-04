@@ -1,0 +1,13 @@
+e2croncheck – run e2fsck on a snapshot of an LVM volume
+
+USAGE: e2croncheck vgname/lvname
+Call this with >/dev/null from your weekly crontab.
+
+The script prints nothing to stderr and returns zero if the check is
+successful. Otherwise, the fsck log is printed to stderr and a non-zero value
+is returned. The cron daemon will then mail the output to you.
+
+This version of e2croncheck has been modified quite a bit by Johan Kiviniemi.
+
+The original version by Theodore Ts'o:
+http://kernel.org/pub/linux/kernel/people/tytso/e2croncheck
