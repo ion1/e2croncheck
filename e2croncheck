@@ -22,7 +22,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 snapsize=100M
-fsckopts="-Fttv -C0"
+fsckopts="-ttv -C0"
 
 fscklog="$(mktemp -t e2fsck.log.XXXXXXXXXX)"
 traps='rm -f "$fscklog"'
